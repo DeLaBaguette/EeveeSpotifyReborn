@@ -13,13 +13,16 @@ A browser app that scans a list of crypto markets on demand and gives you the be
 | **Strictness** | Normal (score 60+), Strict (70+) or Very strict (80+). Stricter means fewer trades, usually better ones, but never zero losers. |
 | **Risk : reward** | Any value from 1 : 0.5 to 1 : 50, with quick buttons up to **1 : 30**. Far targets pay more but are hit less often. The card warns you and shows how often TP2 was actually reached. The time exit grows with the target. |
 | **Close 50% at TP1** | TP1 is at 1R, or half-way to TP2 if that's closer. |
+| **MT5 lot size settings** | Contract size per lot at your broker, e.g. `XAUUSD=100, BTCUSD=1` (find it in MT5 under the symbol's *Specification*). Anything not listed counts as 1 per lot. |
 | **Reset to defaults** | Puts every setting back to how it started, including the market list with XAUUSD. |
+
+Every trade plan starts with the **MT5 lot size**. It's rounded down to 0.01 lots so you never risk more than your setting, and it shows what that size actually risks. If even 0.01 lots would risk more than your setting (small account or wide stop), it warns you. The lot size is also on the chips above the live chart, in the results table and in the copied trade plan.
 
 Each stop and target is shown as a distance from the entry (e.g. `−18.40`) as well as a price, so you can place the trade at your broker's price.
 
 **Gold:** Binance has no XAUUSD, so gold is analysed with **PAXG**, a token backed 1:1 by physical gold.
 - PAXG tracks spot gold closely but can differ by a few dollars, so set your stop and targets from the distances.
-- The live chart shows real `OANDA:XAUUSD`, and position size is also shown in MT5 lots (100 oz per lot).
+- The live chart shows real `OANDA:XAUUSD`, and the lot size uses 100 oz per lot.
 - Gold markets close at weekends while PAXG keeps trading, so ignore weekend gold signals.
 
 ## Automatic trading in MetaTrader 5

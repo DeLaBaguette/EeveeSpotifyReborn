@@ -62,6 +62,11 @@
         </div>
         <div class="hint">The further the target, the less often it gets hit. The track record below shows how often it actually did.</div>
       </div>
+      <details class="field wide advanced">
+        <summary>MT5 lot size settings</summary>
+        <label for="contracts">Contract size: how many units are in 1 lot at your broker. In MT5, open the symbol’s <b>Specification</b> and look for “Contract size”. Write it like <code>XAUUSD=100, BTCUSD=1</code>. Anything not listed counts as 1 per lot.</label>
+        <input id="contracts" type="text" spellcheck="false" autocapitalize="characters">
+      </details>
       <div class="checks-row">
         <label class="check"><input type="checkbox" id="scaleOut"> Close 50% at TP1 and move the stop to entry</label>
         <label class="check"><input type="checkbox" id="auto"> Re-scan every 5 minutes and notify me of new A/B setups</label>
@@ -103,7 +108,7 @@
           <thead>
             <tr>
               <th>Market</th><th>TF</th><th class="num">Price</th><th>Bias</th><th class="num">Score</th>
-              <th>Grade</th><th class="num">Past trades</th><th class="num">Win rate</th><th class="num">Avg / trade</th>
+              <th>Grade</th><th class="num">Lots</th><th class="num">Past trades</th><th class="num">Win rate</th><th class="num">Avg / trade</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>

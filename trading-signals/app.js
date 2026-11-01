@@ -14,6 +14,7 @@
     status: $('status'), progress: $('progress'), idea: $('idea'), ideaMore: $('ideaMore'),
     tablePanel: $('tablePanel'), tbody: $('tbody'), scanMeta: $('scanMeta'),
     tvPanel: $('tvPanel'), tvTitle: $('tvTitle'), tvOpen: $('tvOpen'), tvLevels: $('tvLevels'), tvFrame: $('tvFrame'),
+    contracts: $('contracts'),
   };
 
   const TV_SCRIPT = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
@@ -38,6 +39,7 @@
     tp2R: 2,
     threshold: 60,
     scaleOut: true,
+    contracts: 'XAUUSD=100',
   });
 
   function applySettings(s) {
@@ -49,6 +51,7 @@
     els.strict.value = String(s.threshold);
     if (els.strict.value !== String(s.threshold)) els.strict.value = String(DEFAULT_SETTINGS.threshold);
     els.scaleOut.checked = s.scaleOut;
+    els.contracts.value = s.contracts;
     markPreset();
   }
 
@@ -69,6 +72,7 @@
       tp2R: Math.min(50, Math.max(0.5, parseFloat(els.rr.value) || DEFAULT_SETTINGS.tp2R)),
       threshold: parseInt(els.strict.value, 10) || DEFAULT_SETTINGS.threshold,
       scaleOut: els.scaleOut.checked,
+      contracts: els.contracts.value,
     };
     try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable */ }
     return s;
@@ -114,6 +118,41 @@
 
   // Signed distance from entry in price units, e.g. "−18.40".
   const distance = (x, entry) => (x - entry >= 0 ? '+' : '−') + num(Math.abs(x - entry), decimalsFor(entry));
+
+  // ---------------------------------------------------------- MT5 lot size
+
+  const LOT_STEP = 0.01; // smallest lot and lot step at almost every MT5 broker
+
+  // "XAUUSD=100, BTCUSD=1" -> { XAUUSD: 100, BTCUSD: 1 }
+  function parseContracts(text) {
+    const out = {};
+    String(text || '').toUpperCase().split(/[\s,;]+/).forEach((part) => {
+      const m = part.match(/^([A-Z0-9.]+)[=:]([0-9]*\.?[0-9]+)$/);
+      if (m && parseFloat(m[2]) > 0) out[m[1]] = parseFloat(m[2]);
+    });
+    return out;
+  }
+
+  // Units per lot for this market: the user's setting (BTCUSD also matches BTCUSDT), else 100 oz for gold, else 1.
+  function contractSize(r) {
+    const map = parseContracts(settings ? settings.contracts : DEFAULT_SETTINGS.contracts);
+    const fromUser = map[r.symbol] || map[r.symbol.replace(/USDT$/, 'USD')];
+    return fromUser || (r.meta && r.meta.lotSize) || 1;
+  }
+
+  // Lots rounded DOWN to the lot step so the risk never exceeds the setting.
+  function lotsFor(r, s) {
+    const z = sizing(r, s);
+    const cs = contractSize(r);
+    const exact = z.units / cs;
+    const rounded = Math.floor(exact / LOT_STEP + 1e-9) * LOT_STEP;
+    const belowMin = rounded < LOT_STEP;
+    const lots = belowMin ? LOT_STEP : rounded;
+    const risk = lots * cs * r.plan.risk;
+    return { lots, cs, belowMin, risk, riskPct: s.account > 0 ? (risk / s.account) * 100 : 0 };
+  }
+
+  const lotText = (l) => num(l.lots, 2) + (l.lots === 1 ? ' lot' : ' lots');
 
   function sizing(r, s) {
     const riskAmt = (s.account * s.riskPct) / 100;
@@ -192,7 +231,7 @@
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         new Notification(`${dirWord(r.dir)} ${r.symbol} (${r.interval}) — Grade ${r.grade}`, {
-          body: `Entry ${price(r.plan.entry)} · SL ${price(r.plan.sl, r.plan.entry)} · TP1 ${price(r.plan.tp1, r.plan.entry)} · TP2 ${price(r.plan.tp2, r.plan.entry)}`,
+          body: `${lotText(lotsFor(r, settings))} · Entry ${price(r.plan.entry)} · SL ${price(r.plan.sl, r.plan.entry)} · TP1 ${price(r.plan.tp1, r.plan.entry)} · TP2 ${price(r.plan.tp2, r.plan.entry)}`,
         });
       } catch (e) { /* notifications unsupported in this context */ }
     }
@@ -250,21 +289,24 @@
     if (p) {
       const z = sizing(r, s);
       const move = (x) => `${distance(x, p.entry)} (${pct((x - p.entry) / p.entry)})`;
-      const lots = r.meta && r.meta.lotSize
-        ? `<div>In MT5: ≈ <b>${num(z.units / r.meta.lotSize, 2)} lots</b> (${r.meta.lotSize} ${esc(r.meta.unit)} per lot; check your broker’s contract size)</div>` : '';
+      const L = lotsFor(r, s);
+      const perLot = `${num(L.cs, L.cs % 1 ? 2 : 0)} ${esc(unitOf(r))} per lot`;
+      const lotNote = L.belowMin
+        ? `the smallest size: risks ${money(L.risk)} (${num(L.riskPct, 2)}%), more than your ${s.riskPct}%. Consider skipping · ${perLot}`
+        : `risks ${money(L.risk)} (${num(L.riskPct, 2)}%) · ${perLot}`;
       levels = `
         <div class="levels">
           <h3>Trade plan — 1 : ${num(p.tp2R, p.tp2R % 1 ? 1 : 0)}</h3>
           <table>
+            <tr class="lots"><th>Lot size</th><td class="px">${lotText(L)}</td><td class="note${L.belowMin ? ' over' : ''}">${lotNote}</td></tr>
             <tr class="entry"><th>Entry</th><td class="px">${price(p.entry)}</td><td class="note">market price now</td></tr>
             <tr class="sl"><th>Stop loss</th><td class="px">${price(p.sl, p.entry)}</td><td class="note">${move(p.sl)} · −1R</td></tr>
             <tr class="tp"><th>TP1</th><td class="px">${price(p.tp1, p.entry)}</td><td class="note">${move(p.tp1)} · ${rText(p.tp1R)}${p.scaleOut ? ' · close 50%, move stop to entry' : ' · reference level'}</td></tr>
             <tr class="tp"><th>TP2</th><td class="px">${price(p.tp2, p.entry)}</td><td class="note">${move(p.tp2)} · ${rText(p.tp2R)} · close the rest</td></tr>
           </table>
           <div class="sizing">
-            <div>Position size: <b>${qty(z.units)} ${esc(unitOf(r))}</b> (≈ ${money(z.notional)})</div>
-            ${lots}
-            <div>Risk if stopped: <b>${money(z.riskAmt)}</b> (${s.riskPct}% of ${money(s.account)})${z.leverage > 1 ? ` · needs ${num(z.leverage, 1)}× leverage` : ''}</div>
+            <div>Same size in units: <b>${qty(z.units)} ${esc(unitOf(r))}</b> (≈ ${money(z.notional)})</div>
+            <div>Your risk setting: <b>${money(z.riskAmt)}</b> (${s.riskPct}% of ${money(s.account)})${z.leverage > 1 ? ` · needs ${num(z.leverage, 1)}× leverage` : ''}</div>
             <div class="muted">Exit at market after ${r.opts.maxBars} candles if neither the stop nor TP2 is hit.</div>
           </div>
           ${dir < 0 ? '<div class="short-note">A SELL means opening a short (futures or margin). On spot only, treat it as “don’t buy now / consider taking profit”.</div>' : ''}
@@ -395,7 +437,7 @@
       const key = esc(r.symbol + '|' + r.interval);
       const sel = selected && selected.symbol === r.symbol && selected.interval === r.interval ? ' class="sel"' : '';
       if (r.error) {
-        return `<tr data-key="${key}"${sel}><td><b>${esc(r.symbol)}</b></td><td>${esc(r.interval)}</td><td class="err" colspan="7">${esc(r.error)}</td></tr>`;
+        return `<tr data-key="${key}"${sel}><td><b>${esc(r.symbol)}</b></td><td>${esc(r.interval)}</td><td class="err" colspan="8">${esc(r.error)}</td></tr>`;
       }
       const bias = r.signal
         ? `<span class="${r.dir > 0 ? 'long' : 'short'}">${dirWord(r.dir)}</span>`
@@ -404,6 +446,7 @@
         <td><b>${esc(r.symbol)}</b></td><td>${esc(r.interval)}</td>
         <td class="num">${price(r.livePrice)}</td><td>${bias}</td><td class="num">${r.score}</td>
         <td><span class="g-${r.grade}">${r.grade === 'none' ? '—' : r.grade}</span></td>
+        <td class="num">${r.plan ? num(lotsFor(r, settings).lots, 2) : '—'}</td>
         <td class="num">${r.stats.n}</td>
         <td class="num">${r.stats.n ? num(r.stats.winRate * 100, 0) + '%' : '—'}</td>
         <td class="num ${r.stats.avgR >= 0 ? 'long' : 'short'}">${r.stats.n ? rText(r.stats.avgR) : '—'}</td>
@@ -425,6 +468,7 @@
   function planText(r) {
     const p = r.plan;
     const z = sizing(r, settings);
+    const L = lotsFor(r, settings);
     const rel = (x) => `${distance(x, p.entry)}, ${pct((x - p.entry) / p.entry)}`;
     return [
       `${dirWord(r.dir)} ${r.symbol} (${r.interval}) 1:${p.tp2R} — Grade ${r.grade}, quality ${r.quality}/100, score ${r.score}/100`,
@@ -432,7 +476,8 @@
       `Stop loss: ${price(p.sl, p.entry)} (${rel(p.sl)})`,
       `TP1: ${price(p.tp1, p.entry)} (${rel(p.tp1)})${p.scaleOut ? ' — close 50%, move stop to entry' : ''}`,
       `TP2: ${price(p.tp2, p.entry)} (${rel(p.tp2)})`,
-      `Size: ${qty(z.units)} ${unitOf(r)} (≈ ${money(z.notional)})${r.meta && r.meta.lotSize ? ` ≈ ${num(z.units / r.meta.lotSize, 2)} lots` : ''}, risking ${money(z.riskAmt)}`,
+      `Lot size (MT5): ${lotText(L)} (${L.cs} ${unitOf(r)} per lot), risking ${money(L.risk)}${L.belowMin ? ' (minimum lot, above your risk setting)' : ''}`,
+      `Size in units: ${qty(z.units)} ${unitOf(r)} (≈ ${money(z.notional)})`,
       r.stats.n ? `Track record here: ${r.stats.n} trades, ${num(r.stats.winRate * 100, 0)}% win rate, ${rText(r.stats.avgR)} average per trade` : 'Track record here: none yet',
       `Chart: ${tvLink(r)}`,
       'Not financial advice. No setup is guaranteed.',
@@ -543,7 +588,9 @@
     const d = decimalsFor(p.entry);
     const chip = (cls, label, v) =>
       `<button type="button" class="chip ${cls}" data-price="${v.toFixed(d)}" title="Copy ${label}">${label} ${price(v, p.entry)}</button>`;
+    const L = lotsFor(r, settings);
     els.tvLevels.innerHTML = [
+      `<button type="button" class="chip lots" data-price="${L.lots.toFixed(2)}" title="Copy lot size">${lotText(L)}</button>`,
       chip('entry', `${dirWord(p.dir)} entry`, p.entry),
       chip('sl', 'SL', p.sl),
       chip('tp', 'TP1', p.tp1),
