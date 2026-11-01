@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Signal Desk</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo" aria-hidden="true">◆</span> Signal Desk</div>
+    <div class="status" id="status" role="status">Ready</div>
+  </header>
+
+  <main>
+    <form class="panel controls" id="controls" autocomplete="off">
+      <div class="field wide">
+        <label for="symbols">Markets (Binance symbols, comma separated)</label>
+        <input id="symbols" type="text" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="interval">Timeframe</label>
+        <select id="interval">
+          <option value="auto">Auto (15m · 1h · 4h)</option>
+          <option value="5m">5 minutes</option>
+          <option value="15m">15 minutes</option>
+          <option value="1h">1 hour</option>
+          <option value="4h">4 hours</option>
+          <option value="1d">1 day</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="account">Account size ($)</label>
+        <input id="account" type="number" min="0" step="any" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="risk">Risk per trade (%)</label>
+        <input id="risk" type="number" min="0.1" max="10" step="0.1" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="tp2">Final target (TP2)</label>
+        <select id="tp2">
+          <option value="1.5">1.5 × risk</option>
+          <option value="2">2 × risk</option>
+          <option value="2.5">2.5 × risk</option>
+          <option value="3">3 × risk</option>
+        </select>
+      </div>
+      <div class="checks-row">
+        <label class="check"><input type="checkbox" id="scaleOut"> Close 50% at TP1 and move the stop to entry</label>
+        <label class="check"><input type="checkbox" id="auto"> Re-scan every 5 minutes and notify me of new A/B setups</label>
+      </div>
+      <button id="go" class="primary" type="submit">Get trade idea now</button>
+    </form>
+
+    <div class="progress" id="progress" hidden><span></span></div>
+
+    <section id="idea" aria-live="polite">
+      <div class="panel empty">
+        <h2>Press “Get trade idea now”</h2>
+        <p>Signal Desk scans every market on your list, scores how many independent conditions agree, checks the higher timeframe, and replays the same rules over the last ~1,500 candles of each market to show you how they have actually performed. The best setup is shown here with entry, stop loss, targets and position size.</p>
+      </div>
+    </section>
+
+    <section class="panel" id="tablePanel" hidden>
+      <div class="table-head">
+        <h2>Every market scanned</h2>
+        <span class="muted" id="scanMeta"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="scan">
+          <thead>
+            <tr>
+              <th>Market</th><th>TF</th><th class="num">Price</th><th>Bias</th><th class="num">Score</th>
+              <th>Grade</th><th class="num">Past trades</th><th class="num">Win rate</th><th class="num">Avg / trade</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="muted small">Click a row to see its details.</p>
+    </section>
+
+    <section class="panel guide">
+      <h2>How to read this</h2>
+      <dl>
+        <dt>Score (0–100)</dt>
+        <dd>How many of nine independent conditions (trend, higher-timeframe trend, momentum, RSI, ADX, extension, volume) agree right now. A trade is only suggested at 60 or more.</dd>
+        <dt>Track record</dt>
+        <dd>The same rules, unchanged, replayed over this market’s recent history: entry on the next candle, fees and slippage included, one trade at a time, and the worst case assumed whenever a candle touched both the stop and a target.</dd>
+        <dt>Grade</dt>
+        <dd><b>A</b> strong setup and a profitable record over 20+ trades. <b>B</b> good setup, positive record. <b>C</b> setup present, record thin or weak. <b>D</b> these signals have been losing money on this market — skip it.</dd>
+        <dt>R</dt>
+        <dd>One unit of risk — the distance from entry to stop loss. Losing a trade costs 1R. If you risk 1% per trade, +0.3R per trade on average means about +0.3% of your account per trade over time.</dd>
+      </dl>
+      <p class="reality"><b>No grade means a trade can’t lose.</b> Even the best setups lose a good share of the time, and losing streaks happen. You make money by only taking good setups, risking a small fixed amount (0.5–1%), and letting a positive average play out over many trades.</p>
+    </section>
+  </main>
+
+  <footer>
+    Educational tool, not financial advice. Market data from Binance’s public API. Trading carries a real risk of loss; never trade money you can’t afford to lose.
+  </footer>
+
+  <script src="engine.js"></script>
+  <script src="market.js"></script>
+  <script src="scanner.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

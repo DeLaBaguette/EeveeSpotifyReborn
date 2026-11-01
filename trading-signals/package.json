@@ -1,0 +1,13 @@
+{
+  "name": "signal-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser app that scans crypto markets and suggests trade setups with entry, stop loss, targets, position size and an honest backtested rating.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/engine.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
