@@ -10,9 +10,15 @@
   const els = {
     form: $('controls'), symbols: $('symbols'), interval: $('interval'), account: $('account'),
     risk: $('risk'), tp2: $('tp2'), scaleOut: $('scaleOut'), auto: $('auto'), go: $('go'),
-    status: $('status'), progress: $('progress'), idea: $('idea'), tablePanel: $('tablePanel'),
-    tbody: $('tbody'), scanMeta: $('scanMeta'),
+    status: $('status'), progress: $('progress'), idea: $('idea'), ideaMore: $('ideaMore'),
+    tablePanel: $('tablePanel'), tbody: $('tbody'), scanMeta: $('scanMeta'),
+    tvPanel: $('tvPanel'), tvTitle: $('tvTitle'), tvOpen: $('tvOpen'), tvLevels: $('tvLevels'), tvFrame: $('tvFrame'),
   };
+
+  const TV_SCRIPT = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  const TV_INTERVAL = { '5m': '5', '15m': '15', '1h': '60', '4h': '240', '1d': 'D' };
+  let tvKey = null;   // symbol|interval|theme currently mounted
+  let tvShown = null; // result whose chart is shown
 
   let lastScan = null;
   let selected = null;
@@ -157,6 +163,8 @@
   // --------------------------------------------------------------- rendering
 
   function renderError(msg) {
+    els.ideaMore.innerHTML = '';
+    els.tvPanel.hidden = true;
     els.idea.innerHTML = `
       <div class="panel error-card">
         <h2>Couldn’t get market data</h2>
@@ -251,10 +259,17 @@
         ${quality}
         ${warnings}
         <div class="grid2">${levels || checks}${levels ? checks : historyBlock(r)}</div>
-        ${chart}
+      </article>`;
+    els.ideaMore.innerHTML = `
+      <article class="panel card">
+        <div>
+          <h3>${p ? 'Trade plan on the chart (at scan time)' : 'Price at scan time'}</h3>
+          ${chart}
+        </div>
         ${levels ? historyBlock(r) : ''}
       </article>`;
 
+    renderTradingView(r);
     drawChart($('chart'), r);
     const eq = $('equity');
     if (eq) drawEquity(eq, r.stats.equity);
@@ -307,6 +322,8 @@
     const ok = lastScan ? lastScan.results.filter((r) => !r.error) : [];
     const avoid = ok.filter((r) => r.grade === 'D');
     const closest = ok.filter((r) => r.grade === 'none').sort((a, b) => b.score - a.score).slice(0, 4);
+    els.ideaMore.innerHTML = '';
+    renderTradingView(closest[0] || ok[0] || null);
     els.idea.innerHTML = `
       <article class="panel card">
         <div class="card-head">
@@ -374,12 +391,12 @@
       `TP2: ${price(p.tp2, p.entry)} (${rel(p.tp2)})`,
       `Size: ${qty(z.units)} ${baseAsset(r.symbol)} (≈ ${money(z.notional)}), risking ${money(z.riskAmt)}`,
       r.stats.n ? `Track record here: ${r.stats.n} trades, ${num(r.stats.winRate * 100, 0)}% win rate, ${rText(r.stats.avgR)} average per trade` : 'Track record here: none yet',
+      `Chart: ${tvLink(r)}`,
       'Not financial advice. No setup is guaranteed.',
     ].join('\n');
   }
 
-  async function copyPlan(r, btn) {
-    const text = planText(r);
+  async function copyText(text, btn) {
     try {
       await navigator.clipboard.writeText(text);
     } catch (e) {
@@ -390,8 +407,105 @@
       try { document.execCommand('copy'); } catch (e2) { /* ignore */ }
       ta.remove();
     }
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
     btn.textContent = 'Copied ✓';
-    setTimeout(() => { btn.textContent = 'Copy trade plan'; }, 1500);
+    clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(() => { btn.textContent = btn.dataset.label; }, 1300);
+  }
+
+  const copyPlan = (r, btn) => copyText(planText(r), btn);
+
+  // ------------------------------------------------------- TradingView chart
+
+  const isLight = () => !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+
+  function timeZone() {
+    let tz = 'Etc/UTC';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (e) { /* keep UTC */ }
+    return /^(UTC|GMT|Etc\/(UTC|GMT|Universal|Zulu)|Universal|Zulu)$/.test(tz) ? 'Etc/UTC' : tz;
+  }
+
+  function tvSymbol(symbol) {
+    const host = lastScan && lastScan.source ? lastScan.source : '';
+    return (host.includes('binance.us') ? 'BINANCEUS:' : 'BINANCE:') + symbol;
+  }
+
+  function tvLink(r) {
+    return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol(r.symbol))}&interval=${encodeURIComponent(TV_INTERVAL[r.interval] || '60')}`;
+  }
+
+  function renderTradingView(r) {
+    tvShown = r;
+    if (!r) { els.tvPanel.hidden = true; return; }
+    els.tvPanel.hidden = false;
+    const symbol = tvSymbol(r.symbol);
+    const interval = TV_INTERVAL[r.interval] || '60';
+    els.tvTitle.textContent = `${symbol} · ${r.interval}`;
+    els.tvOpen.href = tvLink(r);
+    renderLevelChips(r);
+    const theme = isLight() ? 'light' : 'dark';
+    const key = `${symbol}|${interval}|${theme}`;
+    if (key === tvKey) return; // same chart: keep it (and any drawings) as is
+    tvKey = key;
+    mountTradingView(symbol, interval, theme);
+  }
+
+  // TradingView's official Advanced Chart embed: a container, a widget div and
+  // the embed script carrying its JSON config as the script body.
+  function mountTradingView(symbol, interval, theme) {
+    const frame = els.tvFrame;
+    frame.textContent = '';
+    const box = document.createElement('div');
+    box.className = 'tradingview-widget-container';
+    const widget = document.createElement('div');
+    widget.className = 'tradingview-widget-container__widget';
+    const credit = document.createElement('div');
+    credit.className = 'tradingview-widget-copyright';
+    credit.innerHTML = '<a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank">Charts by TradingView</a>';
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = TV_SCRIPT;
+    script.async = true;
+    script.textContent = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval,
+      timezone: timeZone(),
+      theme,
+      style: '1',
+      locale: 'en',
+      allow_symbol_change: true,
+      hide_side_toolbar: false,
+      withdateranges: true,
+      save_image: true,
+      calendar: false,
+      details: false,
+      support_host: 'https://www.tradingview.com',
+    });
+    script.onerror = () => {
+      frame.innerHTML = '<div class="tv-fallback">TradingView couldn’t load. It may be blocked on this network or by an ad blocker. Use “Open in TradingView ↗” above instead.</div>';
+      tvKey = null; // try again on the next render
+    };
+    box.append(widget, credit, script);
+    frame.appendChild(box);
+  }
+
+  function renderLevelChips(r) {
+    const p = r.plan;
+    if (!p) {
+      els.tvLevels.innerHTML = `<span class="chip-note">No trade levels for ${esc(r.symbol)} ${esc(r.interval)} right now — watching it live.</span>`;
+      return;
+    }
+    const d = decimalsFor(p.entry);
+    const chip = (cls, label, v) =>
+      `<button type="button" class="chip ${cls}" data-price="${v.toFixed(d)}" title="Copy ${label}">${label} ${price(v, p.entry)}</button>`;
+    els.tvLevels.innerHTML = [
+      chip('entry', `${dirWord(p.dir)} entry`, p.entry),
+      chip('sl', 'SL', p.sl),
+      chip('tp', 'TP1', p.tp1),
+      chip('tp', 'TP2', p.tp2),
+    ].join('');
+    els.tvLevels.querySelectorAll('[data-price]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.price, b)));
   }
 
   // ------------------------------------------------------------------ charts
@@ -578,7 +692,7 @@
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(redraw, 120); });
   if (window.matchMedia) {
     const mq = window.matchMedia('(prefers-color-scheme: light)');
-    if (mq.addEventListener) mq.addEventListener('change', redraw);
+    if (mq.addEventListener) mq.addEventListener('change', () => { redraw(); if (tvShown) renderTradingView(tvShown); });
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) document.title = 'Signal Desk'; });
 

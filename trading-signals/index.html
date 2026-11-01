@@ -59,9 +59,21 @@
     <section id="idea" aria-live="polite">
       <div class="panel empty">
         <h2>Press “Get trade idea now”</h2>
-        <p>Signal Desk scans every market on your list, scores how many independent conditions agree, checks the higher timeframe, and replays the same rules over the last ~1,500 candles of each market to show you how they have actually performed. The best setup is shown here with entry, stop loss, targets and position size.</p>
+        <p>Signal Desk scans every market on your list, scores how many independent conditions agree, checks the higher timeframe, and replays the same rules over the last ~1,500 candles of each market to show you how they have actually performed. The best setup is shown here with entry, stop loss, targets and position size, next to a live TradingView chart.</p>
       </div>
     </section>
+
+    <section class="panel tv" id="tvPanel" hidden>
+      <div class="table-head">
+        <h2>Live chart <span class="muted" id="tvTitle"></span></h2>
+        <a class="tv-open" id="tvOpen" target="_blank" rel="noopener">Open in TradingView ↗</a>
+      </div>
+      <div class="level-chips" id="tvLevels"></div>
+      <div class="tv-frame" id="tvFrame"></div>
+      <p class="muted small">Real-time chart by TradingView. Click a level above to copy it, then press <b>Alt + H</b> on the chart (horizontal line tool) to mark it.</p>
+    </section>
+
+    <section id="ideaMore"></section>
 
     <section class="panel" id="tablePanel" hidden>
       <div class="table-head">

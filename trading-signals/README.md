@@ -53,6 +53,18 @@ For every market and timeframe on your list (Auto mode scans 15m, 1h and 4h):
    The stats include a **worst-case win rate**: the 95% Wilson lower bound, which accounts for small sample sizes.
 5. **Ranks everything.** It shows the best idea with a chart and the full checklist of reasons, plus a table of every market you can click through. If nothing qualifies, it says **No trade right now** and shows the setups closest to triggering. Not trading is often the right call.
 
+## Live TradingView chart
+
+The selected idea is shown on a **real-time TradingView chart**, using TradingView's official Advanced Chart widget with the `BINANCE:` symbol and the matching timeframe. You get TradingView's full set of indicators and drawing tools.
+- **Levels:** the Entry, SL, TP1 and TP2 levels appear as chips above the chart. Click one to copy the price, then press **Alt + H** on the chart to draw a horizontal line there. The free widget doesn't let other pages draw on it, so the chips are the quickest way to mark your levels.
+- **Reloads:** the chart only reloads when you change market, timeframe or light/dark theme. Auto re-scans keep your zoom and drawings.
+- **Open in TradingView ↗** opens the same chart on tradingview.com, and the copied trade plan includes that link.
+- **If it's blocked:** if TradingView is blocked (by your network or an ad blocker), the panel says so and you can use the link instead.
+
+The smaller chart under it is a snapshot from the moment of the scan, with the trade zones shaded.
+
+## Re-scan and notifications
+
 Tick **Re-scan every 5 minutes** to keep the tab updating and get a browser notification when a new Grade A or B setup appears.
 
 A **SELL** means opening a short, which needs futures or margin. On spot, read it as "don't buy now / consider taking profit".
