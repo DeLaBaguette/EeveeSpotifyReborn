@@ -267,3 +267,54 @@ test('parseSymbols cleans user input', () => {
   const { parseSymbols } = require('../scanner');
   assert.deepEqual(parseSymbols(' btcusdt, ETHUSDT;eth-usdt  btcusdt\n'), ['BTCUSDT', 'ETHUSDT']);
 });
+
+test('resolveOpts: TP1 never beyond half of TP2, time stop grows with far targets', () => {
+  const d = E.resolveOpts({});
+  assert.equal(d.tp1R, 1);
+  assert.equal(d.maxBars, 48);
+  const far = E.resolveOpts({ tp2R: 30 });
+  assert.equal(far.tp1R, 1);
+  assert.equal(far.maxBars, 300);
+  const near = E.resolveOpts({ tp2R: 1 });
+  assert.equal(near.tp1R, 0.5);
+  assert.equal(near.maxBars, 48);
+  // explicit values win
+  assert.equal(E.resolveOpts({ tp2R: 30, tp1R: 2, maxBars: 10 }).tp1R, 2);
+  assert.equal(E.resolveOpts({ tp2R: 30, tp1R: 2, maxBars: 10 }).maxBars, 10);
+});
+
+test('custom risk:reward and strictness flow through the plan and backtest', () => {
+  const rows = series('RRUSDT', '1h', 1500, NOW);
+  const candles = toCandles(rows).slice(0, -1);
+  const htf = toCandles(series('RRUSDT', '4h', 1500, NOW)).slice(0, -1);
+  const normal = E.analyze({ candles, htfCandles: htf, opts: { tp2R: 30, threshold: 50 } });
+  if (normal.plan) {
+    near((normal.plan.tp2 - normal.plan.entry) / (normal.plan.entry - normal.plan.sl), 30, 1e-9, 'TP2 at 30R');
+    assert.ok(normal.warnings.some((w) => /Far target/.test(w)));
+  }
+  // every TP2 hit at 1:30 pays 0.5R (TP1) + 0.5 × 30R
+  for (const t of normal.recentTrades) if (t.outcome === 'target') assert.ok(t.r > 15);
+  const strict = E.analyze({ candles, htfCandles: htf, opts: { threshold: 85 } });
+  const loose = E.analyze({ candles, htfCandles: htf, opts: { threshold: 50 } });
+  assert.ok(strict.stats.n <= loose.stats.n, 'stricter rules take fewer trades');
+});
+
+test('gold: XAUUSD is analysed through PAXGUSDT and charted as real XAUUSD', async () => {
+  const Scanner = require('../scanner');
+  require('../market')._reset();
+  assert.deepEqual(Scanner.parseSymbols('gold, xau, XAUUSD, paxgusdt, btcusdt'), ['XAUUSD', 'BTCUSDT']);
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch(NOW, { calls });
+  try {
+    const out = await Scanner.scan({ symbols: ['XAUUSD'], intervals: ['1h'], now: NOW });
+    const r = out.results[0];
+    assert.ok(!r.error, r.error);
+    assert.equal(r.symbol, 'XAUUSD');
+    assert.equal(r.dataSymbol, 'PAXGUSDT');
+    assert.equal(r.meta.tv, 'OANDA:XAUUSD');
+    assert.ok(calls.every((u) => u.includes('symbol=PAXGUSDT')), 'fetches PAXG data');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

@@ -9,7 +9,8 @@
 
   const els = {
     form: $('controls'), symbols: $('symbols'), interval: $('interval'), account: $('account'),
-    risk: $('risk'), tp2: $('tp2'), scaleOut: $('scaleOut'), auto: $('auto'), go: $('go'),
+    risk: $('risk'), rr: $('rr'), rrPresets: $('rrPresets'), strict: $('strict'), reset: $('reset'),
+    scaleOut: $('scaleOut'), auto: $('auto'), go: $('go'),
     status: $('status'), progress: $('progress'), idea: $('idea'), ideaMore: $('ideaMore'),
     tablePanel: $('tablePanel'), tbody: $('tbody'), scanMeta: $('scanMeta'),
     tvPanel: $('tvPanel'), tvTitle: $('tvTitle'), tvOpen: $('tvOpen'), tvLevels: $('tvLevels'), tvFrame: $('tvFrame'),
@@ -29,15 +30,34 @@
 
   // ---------------------------------------------------------------- settings
 
+  const DEFAULT_SETTINGS = Object.freeze({
+    symbols: Scanner.DEFAULT_SYMBOLS.join(', '),
+    interval: 'auto',
+    account: 1000,
+    riskPct: 1,
+    tp2R: 2,
+    threshold: 60,
+    scaleOut: true,
+  });
+
+  function applySettings(s) {
+    els.symbols.value = s.symbols;
+    els.interval.value = s.interval;
+    els.account.value = s.account;
+    els.risk.value = s.riskPct;
+    els.rr.value = s.tp2R;
+    els.strict.value = String(s.threshold);
+    if (els.strict.value !== String(s.threshold)) els.strict.value = String(DEFAULT_SETTINGS.threshold);
+    els.scaleOut.checked = s.scaleOut;
+    markPreset();
+  }
+
   function loadSettings() {
-    let s = {};
-    try { s = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { s = {}; }
-    els.symbols.value = s.symbols || Scanner.DEFAULT_SYMBOLS.join(', ');
-    els.interval.value = s.interval || 'auto';
-    els.account.value = s.account != null ? s.account : 1000;
-    els.risk.value = s.riskPct != null ? s.riskPct : 1;
-    els.tp2.value = String(s.tp2R || 2);
-    els.scaleOut.checked = s.scaleOut != null ? s.scaleOut : true;
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { saved = {}; }
+    const s = { ...DEFAULT_SETTINGS };
+    for (const k of Object.keys(s)) if (saved[k] != null && saved[k] !== '') s[k] = saved[k];
+    applySettings(s);
   }
 
   function readSettings() {
@@ -46,11 +66,24 @@
       interval: els.interval.value,
       account: Math.max(0, parseFloat(els.account.value) || 0),
       riskPct: Math.min(10, Math.max(0.1, parseFloat(els.risk.value) || 1)),
-      tp2R: parseFloat(els.tp2.value) || 2,
+      tp2R: Math.min(50, Math.max(0.5, parseFloat(els.rr.value) || DEFAULT_SETTINGS.tp2R)),
+      threshold: parseInt(els.strict.value, 10) || DEFAULT_SETTINGS.threshold,
       scaleOut: els.scaleOut.checked,
     };
     try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable */ }
     return s;
+  }
+
+  function resetSettings() {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* storage unavailable */ }
+    applySettings(DEFAULT_SETTINGS);
+    settings = readSettings();
+    setStatus('Settings reset to defaults — press “Get trade idea now” to scan again');
+  }
+
+  function markPreset() {
+    const v = parseFloat(els.rr.value);
+    els.rrPresets.querySelectorAll('[data-rr]').forEach((b) => b.classList.toggle('on', parseFloat(b.dataset.rr) === v));
   }
 
   // -------------------------------------------------------------- formatting
@@ -76,6 +109,11 @@
     for (const q of QUOTES) if (sym.endsWith(q) && sym.length > q.length) return sym.slice(0, -q.length);
     return sym;
   }
+
+  const unitOf = (r) => (r.meta && r.meta.unit ? r.meta.unit : baseAsset(r.symbol));
+
+  // Signed distance from entry in price units, e.g. "−18.40".
+  const distance = (x, entry) => (x - entry >= 0 ? '+' : '−') + num(Math.abs(x - entry), decimalsFor(entry));
 
   function sizing(r, s) {
     const riskAmt = (s.account * s.riskPct) / 100;
@@ -112,7 +150,7 @@
       const scan = await Scanner.scan({
         symbols,
         intervals,
-        opts: { tp2R: settings.tp2R, scaleOut: settings.scaleOut },
+        opts: { tp2R: settings.tp2R, scaleOut: settings.scaleOut, threshold: settings.threshold },
         onProgress: (d, t) => setProgress(d / t),
       });
       lastScan = scan;
@@ -183,7 +221,7 @@
       <div class="card-head">
         <div>
           <div class="pair">${esc(r.symbol)} <span class="tf">${esc(r.interval)}</span></div>
-          <div class="sub">Price ${price(r.livePrice)} · last closed candle ${when(r.lastBarTime)}${r.signal ? ` · signal active for ${r.ageBars} candle${r.ageBars === 1 ? '' : 's'}` : ''}</div>
+          <div class="sub">Price ${price(r.livePrice)}${r.meta ? ` (${esc(r.dataSymbol)})` : ''} · last closed candle ${when(r.lastBarTime)}${r.signal ? ` · signal active for ${r.ageBars} candle${r.ageBars === 1 ? '' : 's'}` : ''}</div>
         </div>
         <div class="verdict">
           ${r.signal
@@ -206,14 +244,17 @@
 
     const warnings = r.warnings.length
       ? `<ul class="warnings">${r.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
+    const info = r.meta && r.meta.note ? `<div class="info">${esc(r.meta.note)}</div>` : '';
 
     let levels = '';
     if (p) {
       const z = sizing(r, s);
-      const move = (x) => pct((x - p.entry) / p.entry);
+      const move = (x) => `${distance(x, p.entry)} (${pct((x - p.entry) / p.entry)})`;
+      const lots = r.meta && r.meta.lotSize
+        ? `<div>In MT5: ≈ <b>${num(z.units / r.meta.lotSize, 2)} lots</b> (${r.meta.lotSize} ${esc(r.meta.unit)} per lot; check your broker’s contract size)</div>` : '';
       levels = `
         <div class="levels">
-          <h3>Trade plan</h3>
+          <h3>Trade plan — 1 : ${num(p.tp2R, p.tp2R % 1 ? 1 : 0)}</h3>
           <table>
             <tr class="entry"><th>Entry</th><td class="px">${price(p.entry)}</td><td class="note">market price now</td></tr>
             <tr class="sl"><th>Stop loss</th><td class="px">${price(p.sl, p.entry)}</td><td class="note">${move(p.sl)} · −1R</td></tr>
@@ -221,7 +262,8 @@
             <tr class="tp"><th>TP2</th><td class="px">${price(p.tp2, p.entry)}</td><td class="note">${move(p.tp2)} · ${rText(p.tp2R)} · close the rest</td></tr>
           </table>
           <div class="sizing">
-            <div>Position size: <b>${qty(z.units)} ${esc(baseAsset(r.symbol))}</b> (≈ ${money(z.notional)})</div>
+            <div>Position size: <b>${qty(z.units)} ${esc(unitOf(r))}</b> (≈ ${money(z.notional)})</div>
+            ${lots}
             <div>Risk if stopped: <b>${money(z.riskAmt)}</b> (${s.riskPct}% of ${money(s.account)})${z.leverage > 1 ? ` · needs ${num(z.leverage, 1)}× leverage` : ''}</div>
             <div class="muted">Exit at market after ${r.opts.maxBars} candles if neither the stop nor TP2 is hit.</div>
           </div>
@@ -258,6 +300,7 @@
         ${head}
         ${quality}
         ${warnings}
+        ${info}
         <div class="grid2">${levels || checks}${levels ? checks : historyBlock(r)}</div>
       </article>`;
     els.ideaMore.innerHTML = `
@@ -382,14 +425,14 @@
   function planText(r) {
     const p = r.plan;
     const z = sizing(r, settings);
-    const rel = (x) => pct((x - p.entry) / p.entry);
+    const rel = (x) => `${distance(x, p.entry)}, ${pct((x - p.entry) / p.entry)}`;
     return [
-      `${dirWord(r.dir)} ${r.symbol} (${r.interval}) — Grade ${r.grade}, quality ${r.quality}/100, score ${r.score}/100`,
-      `Entry: ${price(p.entry)}`,
+      `${dirWord(r.dir)} ${r.symbol} (${r.interval}) 1:${p.tp2R} — Grade ${r.grade}, quality ${r.quality}/100, score ${r.score}/100`,
+      `Entry: ${price(p.entry)}${r.meta ? ` (${r.dataSymbol} price — use your broker's price and the distances)` : ''}`,
       `Stop loss: ${price(p.sl, p.entry)} (${rel(p.sl)})`,
       `TP1: ${price(p.tp1, p.entry)} (${rel(p.tp1)})${p.scaleOut ? ' — close 50%, move stop to entry' : ''}`,
       `TP2: ${price(p.tp2, p.entry)} (${rel(p.tp2)})`,
-      `Size: ${qty(z.units)} ${baseAsset(r.symbol)} (≈ ${money(z.notional)}), risking ${money(z.riskAmt)}`,
+      `Size: ${qty(z.units)} ${unitOf(r)} (≈ ${money(z.notional)})${r.meta && r.meta.lotSize ? ` ≈ ${num(z.units / r.meta.lotSize, 2)} lots` : ''}, risking ${money(z.riskAmt)}`,
       r.stats.n ? `Track record here: ${r.stats.n} trades, ${num(r.stats.winRate * 100, 0)}% win rate, ${rText(r.stats.avgR)} average per trade` : 'Track record here: none yet',
       `Chart: ${tvLink(r)}`,
       'Not financial advice. No setup is guaranteed.',
@@ -425,20 +468,21 @@
     return /^(UTC|GMT|Etc\/(UTC|GMT|Universal|Zulu)|Universal|Zulu)$/.test(tz) ? 'Etc/UTC' : tz;
   }
 
-  function tvSymbol(symbol) {
+  function tvSymbol(r) {
+    if (r.meta && r.meta.tv) return r.meta.tv; // e.g. real XAUUSD for gold
     const host = lastScan && lastScan.source ? lastScan.source : '';
-    return (host.includes('binance.us') ? 'BINANCEUS:' : 'BINANCE:') + symbol;
+    return (host.includes('binance.us') ? 'BINANCEUS:' : 'BINANCE:') + r.symbol;
   }
 
   function tvLink(r) {
-    return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol(r.symbol))}&interval=${encodeURIComponent(TV_INTERVAL[r.interval] || '60')}`;
+    return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSymbol(r))}&interval=${encodeURIComponent(TV_INTERVAL[r.interval] || '60')}`;
   }
 
   function renderTradingView(r) {
     tvShown = r;
     if (!r) { els.tvPanel.hidden = true; return; }
     els.tvPanel.hidden = false;
-    const symbol = tvSymbol(r.symbol);
+    const symbol = tvSymbol(r);
     const interval = TV_INTERVAL[r.interval] || '60';
     els.tvTitle.textContent = `${symbol} · ${r.interval}`;
     els.tvOpen.href = tvLink(r);
@@ -676,6 +720,12 @@
   // ------------------------------------------------------------------ wiring
 
   els.form.addEventListener('submit', (e) => { e.preventDefault(); document.title = 'Signal Desk'; run('manual'); });
+  els.reset.addEventListener('click', resetSettings);
+  els.rr.addEventListener('input', markPreset);
+  els.rrPresets.querySelectorAll('[data-rr]').forEach((b) => b.addEventListener('click', () => {
+    els.rr.value = b.dataset.rr;
+    markPreset();
+  }));
 
   els.auto.addEventListener('change', async () => {
     clearInterval(timer);

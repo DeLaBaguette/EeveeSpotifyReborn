@@ -16,14 +16,14 @@
 
   const DEFAULTS = Object.freeze({
     threshold: 60,        // minimum confluence score (0-100) before a trade is suggested
-    tp1R: 1,              // first target, in multiples of the risk (R)
-    tp2R: 2,              // final target, in R
+    tp1R: 1,              // first target, in multiples of the risk (R); capped at half of tp2R
+    tp2R: 2,              // final target, in R (the "1 : x" risk-to-reward)
     scaleOut: true,       // close 50% at TP1 and move the stop to entry
     slAtr: 1.5,           // base stop distance in ATRs
     minSlAtr: 1.0,        // never tighter than this
     maxSlAtr: 3.0,        // never wider than this
     swingLookback: 10,    // bars used to find the recent swing high/low for the stop
-    maxBars: 48,          // time stop: exit at market after this many bars
+    maxBars: 48,          // time stop: exit at market after this many bars (grows with far targets)
     costPerSide: 0.0006,  // fees + slippage per fill, as a fraction of price (0.06%)
     warmup: 210,          // bars needed before indicators (200 EMA) are reliable
   });
@@ -461,6 +461,17 @@
   // Public entry point
   // ---------------------------------------------------------------------------
 
+  // Fill in options that depend on each other unless the caller set them:
+  // TP1 sits at 1R or half-way to TP2 (whichever is closer), and the time stop
+  // grows with far targets (a 1:30 trade needs time to get there).
+  function resolveOpts(o) {
+    const given = o || {};
+    const opts = { ...DEFAULTS, ...given };
+    if (given.tp1R == null) opts.tp1R = Math.min(DEFAULTS.tp1R, opts.tp2R / 2);
+    if (given.maxBars == null) opts.maxBars = Math.min(300, Math.max(DEFAULTS.maxBars, Math.round(24 * opts.tp2R)));
+    return opts;
+  }
+
   /**
    * @param {object} p
    * @param {Array}  p.candles      closed candles, oldest first
@@ -470,7 +481,7 @@
    * @param {object} [p.opts]       overrides for DEFAULTS
    */
   function analyze(p) {
-    const opts = { ...DEFAULTS, ...(p.opts || {}) };
+    const opts = resolveOpts(p.opts);
     const candles = p.candles;
     if (!candles || candles.length < opts.warmup + 50) {
       throw new Error(`Not enough history (need ${opts.warmup + 50} candles, got ${candles ? candles.length : 0})`);
@@ -505,6 +516,9 @@
       if (moved > 0.75) warnings.push(`Price has already run ${moved.toFixed(1)} ATR since the signal candle closed — a late entry. Consider waiting for a pullback.`);
       if (maturityPenalty) warnings.push(`This signal has been active for ${ageBars} candles — the move may be mature (quality reduced by ${maturityPenalty}).`);
       if (stats.n < 10) warnings.push(`Only ${stats.n} past trades to judge this setup on — the track record is not meaningful yet.`);
+      if (opts.tp2R >= 4 && stats.n) {
+        warnings.push(`Far target (1 : ${opts.tp2R}): TP2 was reached in only ${stats.outcomes.target} of ${stats.n} past trades. Most results came from TP1, the stop or the time exit.`);
+      }
     }
 
     return {
@@ -551,6 +565,6 @@
     computeIndicators, htfTrend, alignHtf,
     scoreAt, evaluate, buildPlan, simulateTrade, backtest,
     wilsonLower, summarize, gradeFor, qualityFor,
-    analyze, rank,
+    resolveOpts, analyze, rank,
   };
 });

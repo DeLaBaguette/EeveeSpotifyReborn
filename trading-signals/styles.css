@@ -110,10 +110,23 @@ button {
   padding: 8px 14px;
 }
 button:hover { border-color: var(--accent); }
+.buttons { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; }
 button.primary {
-  grid-column: 1 / -1;
+  flex: 1 1 240px;
   background: var(--accent); border-color: var(--accent); color: #fff;
   font-weight: 700; font-size: 16px; padding: 13px 18px;
+}
+button.secondary { flex: 0 1 auto; color: var(--muted); }
+.rr-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rr-prefix { font-weight: 700; }
+.rr-row input { width: 90px; flex: 0 0 auto; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { padding: 6px 10px; font-size: 13px; }
+.presets button.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.hint { font-size: 12px; color: var(--muted); }
+.info {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; font-size: 14px; color: var(--muted);
 }
 button.primary:hover { filter: brightness(1.08); }
 button:disabled { opacity: 0.6; cursor: progress; }
@@ -246,6 +259,7 @@ td.err { color: var(--down); white-space: normal; }
 .guide dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; }
 .guide dt { font-weight: 700; }
 .guide dd { margin: 0; color: var(--muted); }
+.guide > p { margin: 14px 0 0; }
 .reality { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-soft); border: 1px solid var(--warn); }
 
 .error-card { border-color: var(--down); }

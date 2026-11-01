@@ -4,9 +4,31 @@ A browser app that scans a list of crypto markets on demand and gives you the be
 
 > **Read this first.** No app, indicator, AI or signal service can guarantee winning trades, and anything that claims to is lying. Prices react to news and to millions of other traders. What a tool *can* do is wait for several independent conditions to agree, size the position so one loss is small, and show you the real track record so you know what to expect. A Grade A setup can and will still lose. Expect losing streaks; the app shows you the longest one it found.
 
+## Settings
+
+| Setting | What it does |
+|---|---|
+| **Markets** | Any Binance pair (e.g. `BTCUSDT`) plus **`XAUUSD`** for gold (also accepts `GOLD`). |
+| **Timeframe** | Auto (15m, 1h and 4h) or a single timeframe. |
+| **Strictness** | Normal (score 60+), Strict (70+) or Very strict (80+). Stricter means fewer trades, usually better ones, but never zero losers. |
+| **Risk : reward** | Any value from 1 : 0.5 to 1 : 50, with quick buttons up to **1 : 30**. Far targets pay more but are hit less often. The card warns you and shows how often TP2 was actually reached. The time exit grows with the target. |
+| **Close 50% at TP1** | TP1 is at 1R, or half-way to TP2 if that's closer. |
+| **Reset to defaults** | Puts every setting back to how it started, including the market list with XAUUSD. |
+
+Each stop and target is shown as a distance from the entry (e.g. `−18.40`) as well as a price, so you can place the trade at your broker's price.
+
+**Gold:** Binance has no XAUUSD, so gold is analysed with **PAXG**, a token backed 1:1 by physical gold.
+- PAXG tracks spot gold closely but can differ by a few dollars, so set your stop and targets from the distances.
+- The live chart shows real `OANDA:XAUUSD`, and position size is also shown in MT5 lots (100 oz per lot).
+- Gold markets close at weekends while PAXG keeps trading, so ignore weekend gold signals.
+
+## Automatic trading in MetaTrader 5
+
+The iPhone MT5 app can't run trading robots. [`mt5/SignalDesk.mq5`](mt5/SignalDesk.mq5) is an Expert Advisor with the same strategy that runs in MetaTrader 5 on a computer, or on MetaQuotes' Virtual Hosting around the clock. It trades your broker's real prices (including XAUUSD) and sends alerts to the iPhone app. Its safety switch keeps it on demo accounts until you turn real trading on. See the [step-by-step guide](mt5/README.md).
+
 ## Run it
 
-No install and no API key. Open `index.html` in any modern browser (double-click it), choose your markets, then press **Get trade idea now**.
+No install and no API key. On a phone, open https://raw.githack.com/DeLaBaguette/EeveeSpotifyReborn/claude/trading-app-signals-nlmhea/trading-signals/index.html (and use Share → Add to Home Screen). On a computer you can also open `index.html` directly. Then press **Get trade idea now**.
 
 Market data comes from Binance's public API (`data-api.binance.vision`, falling back to `api.binance.com` and `api.binance.us`). If your network or country blocks Binance, the app will tell you.
 
@@ -31,7 +53,7 @@ For every market and timeframe on your list (Auto mode scans 15m, 1h and 4h):
 2. **Builds the trade plan.**
    - **Stop:** beyond the recent swing high or low, or 1.5 ATR away, whichever is further, kept between 1 and 3 ATR.
    - **TP1** = 1R: close 50% and move the stop to entry, so the rest of the trade can't lose.
-   - **TP2** = your chosen 1.5–3R.
+   - **TP2** = your chosen risk : reward (1 : 0.5 up to 1 : 50).
    - **Position size:** works out how much to buy or sell so that hitting the stop costs exactly your chosen % of the account.
 3. **Backtests the exact same rules** on the last ~1,500 candles of that market:
    - Entry is on the next candle's open.
@@ -77,6 +99,7 @@ A **SELL** means opening a short, which needs futures or margin. On spot, read i
 | `engine.js` | Indicators, scoring, trade plan, trade simulation, backtest, grading. Pure functions with no I/O |
 | `market.js` | Binance kline fetching with pagination and host fallback |
 | `scanner.js` | Scans markets × timeframes and ranks the results |
+| `mt5/SignalDesk.mq5`, `mt5/README.md` | MetaTrader 5 robot (Expert Advisor) and its setup guide |
 | `test/` | Unit tests (`npm test`, Node 18+) |
 
 The tests cover:

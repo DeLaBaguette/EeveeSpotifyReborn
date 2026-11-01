@@ -8,9 +8,21 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Engine, Market) {
   'use strict';
 
-  const DEFAULT_SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT'];
+  const DEFAULT_SYMBOLS = ['XAUUSD', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT'];
   const AUTO_INTERVALS = ['15m', '1h', '4h'];
   const HISTORY = 1500;
+
+  // Markets Binance doesn't list directly, analysed through a closely tracking instrument.
+  const ALIASES = {
+    XAUUSD: {
+      data: 'PAXGUSDT',
+      tv: 'OANDA:XAUUSD',
+      unit: 'oz',
+      lotSize: 100,
+      note: 'Gold is analysed with PAXG (a token backed 1:1 by physical gold), which tracks spot gold closely but can differ by a few dollars from your broker’s XAUUSD. Use the distances (e.g. “−18.40”) to set your stop and targets from your actual entry price. Gold markets close at weekends while PAXG keeps trading, so ignore weekend gold signals.',
+    },
+  };
+  const SYNONYMS = { GOLD: 'XAUUSD', XAU: 'XAUUSD', XAUUSDT: 'XAUUSD', PAXG: 'XAUUSD', PAXGUSDT: 'XAUUSD' };
 
   async function pool(items, size, fn) {
     let next = 0;
@@ -21,7 +33,8 @@
   }
 
   function parseSymbols(text) {
-    return [...new Set(String(text).toUpperCase().split(/[\s,;]+/).map((s) => s.replace(/[^A-Z0-9]/g, '')).filter(Boolean))];
+    const clean = String(text).toUpperCase().split(/[\s,;]+/).map((s) => s.replace(/[^A-Z0-9]/g, '')).filter(Boolean);
+    return [...new Set(clean.map((s) => SYNONYMS[s] || s))];
   }
 
   /**
@@ -52,8 +65,10 @@
 
     await pool(jobs, 4, async ({ symbol, interval }) => {
       const htfInterval = Market.HIGHER[interval];
+      const meta = ALIASES[symbol] || null;
+      const dataSymbol = meta ? meta.data : symbol;
       try {
-        const [ltfRaw, htfRaw] = await Promise.all([get(symbol, interval), get(symbol, htfInterval)]);
+        const [ltfRaw, htfRaw] = await Promise.all([get(dataSymbol, interval), get(dataSymbol, htfInterval)]);
         const ltf = Market.splitClosed(ltfRaw, now);
         const htf = Market.splitClosed(htfRaw, now);
         const analysis = Engine.analyze({
@@ -63,9 +78,9 @@
           htfLabel: htfInterval,
           opts: p.opts,
         });
-        results.push({ symbol, interval, htfInterval, ...analysis });
+        results.push({ symbol, dataSymbol, meta, interval, htfInterval, ...analysis });
       } catch (e) {
-        results.push({ symbol, interval, htfInterval, error: e.message || String(e) });
+        results.push({ symbol, dataSymbol, meta, interval, htfInterval, error: e.message || String(e) });
       }
       done++;
       if (p.onProgress) p.onProgress(done, jobs.length);
@@ -76,5 +91,5 @@
     return { results: ranked, best, scannedAt: now, source: Market.activeHost() };
   }
 
-  return { scan, parseSymbols, DEFAULT_SYMBOLS, AUTO_INTERVALS };
+  return { scan, parseSymbols, DEFAULT_SYMBOLS, AUTO_INTERVALS, ALIASES };
 });

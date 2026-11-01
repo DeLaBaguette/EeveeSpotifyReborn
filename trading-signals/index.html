@@ -16,7 +16,7 @@
   <main>
     <form class="panel controls" id="controls" autocomplete="off">
       <div class="field wide">
-        <label for="symbols">Markets (Binance symbols, comma separated)</label>
+        <label for="symbols">Markets (comma separated: XAUUSD for gold, or any Binance pair like BTCUSDT)</label>
         <input id="symbols" type="text" spellcheck="false">
       </div>
       <div class="field">
@@ -31,6 +31,14 @@
         </select>
       </div>
       <div class="field">
+        <label for="strict">Strictness</label>
+        <select id="strict">
+          <option value="60">Normal (60+)</option>
+          <option value="70">Strict (70+)</option>
+          <option value="80">Very strict (80+)</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="account">Account size ($)</label>
         <input id="account" type="number" min="0" step="any" inputmode="decimal">
       </div>
@@ -38,20 +46,30 @@
         <label for="risk">Risk per trade (%)</label>
         <input id="risk" type="number" min="0.1" max="10" step="0.1" inputmode="decimal">
       </div>
-      <div class="field">
-        <label for="tp2">Final target (TP2)</label>
-        <select id="tp2">
-          <option value="1.5">1.5 × risk</option>
-          <option value="2">2 × risk</option>
-          <option value="2.5">2.5 × risk</option>
-          <option value="3">3 × risk</option>
-        </select>
+      <div class="field wide">
+        <label for="rr">Risk : reward (how far TP2 is, in multiples of your risk)</label>
+        <div class="rr-row">
+          <span class="rr-prefix">1 :</span>
+          <input id="rr" type="number" min="0.5" max="50" step="0.1" inputmode="decimal">
+          <div class="presets" id="rrPresets" role="group" aria-label="Quick risk to reward">
+            <button type="button" data-rr="1">1:1</button>
+            <button type="button" data-rr="2">1:2</button>
+            <button type="button" data-rr="3">1:3</button>
+            <button type="button" data-rr="5">1:5</button>
+            <button type="button" data-rr="10">1:10</button>
+            <button type="button" data-rr="30">1:30</button>
+          </div>
+        </div>
+        <div class="hint">The further the target, the less often it gets hit. The track record below shows how often it actually did.</div>
       </div>
       <div class="checks-row">
         <label class="check"><input type="checkbox" id="scaleOut"> Close 50% at TP1 and move the stop to entry</label>
         <label class="check"><input type="checkbox" id="auto"> Re-scan every 5 minutes and notify me of new A/B setups</label>
       </div>
-      <button id="go" class="primary" type="submit">Get trade idea now</button>
+      <div class="buttons">
+        <button id="go" class="primary" type="submit">Get trade idea now</button>
+        <button id="reset" class="secondary" type="button">Reset to defaults</button>
+      </div>
     </form>
 
     <div class="progress" id="progress" hidden><span></span></div>
@@ -98,7 +116,9 @@
       <h2>How to read this</h2>
       <dl>
         <dt>Score (0–100)</dt>
-        <dd>How many of nine independent conditions (trend, higher-timeframe trend, momentum, RSI, ADX, extension, volume) agree right now. A trade is only suggested at 60 or more.</dd>
+        <dd>How many of nine independent conditions (trend, higher-timeframe trend, momentum, RSI, ADX, extension, volume) agree right now. A trade is only suggested at 60 or more, or 70/80 in the Strict modes. Stricter means fewer trades, and usually better ones, but never zero losers.</dd>
+        <dt>Risk : reward</dt>
+        <dd>1 : 2 means TP2 is twice as far from the entry as the stop. Bigger numbers pay more when they hit but hit less often. At 1 : 30 most trades end at TP1, at the stop or on the time exit, and only rarely at TP2. The track record shows the real numbers for your choice.</dd>
         <dt>Track record</dt>
         <dd>The same rules, unchanged, replayed over this market’s recent history: entry on the next candle, fees and slippage included, one trade at a time, and the worst case assumed whenever a candle touched both the stop and a target.</dd>
         <dt>Grade</dt>
@@ -106,6 +126,7 @@
         <dt>R</dt>
         <dd>One unit of risk — the distance from entry to stop loss. Losing a trade costs 1R. If you risk 1% per trade, +0.3R per trade on average means about +0.3% of your account per trade over time.</dd>
       </dl>
+      <p><b>Want it to place trades for you?</b> The iPhone MetaTrader app can’t run robots, but MetaTrader 5 on a computer or MetaQuotes’ cloud server can. <a class="tv-open" href="https://github.com/DeLaBaguette/EeveeSpotifyReborn/blob/claude/trading-app-signals-nlmhea/trading-signals/mt5/README.md" target="_blank" rel="noopener">Set up the Signal Desk MT5 robot ↗</a></p>
       <p class="reality"><b>No grade means a trade can’t lose.</b> Even the best setups lose a good share of the time, and losing streaks happen. You make money by only taking good setups, risking a small fixed amount (0.5–1%), and letting a positive average play out over many trades.</p>
     </section>
   </main>
