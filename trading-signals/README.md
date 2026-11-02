@@ -8,7 +8,9 @@ A browser app that scans a list of crypto markets on demand and gives you the be
 
 On 22 months of real BTCUSD prices (January 2025 to November 2026), **15-minute and 1-hour signals lost money and were no better than random trades**, even before costs. **4-hour signals made a small profit** (about +0.1R per trade at Strict, 1 : 3), positive in both years, but there weren't enough trades to rule out luck. Gold only had 6 months of data, with no clear result.
 
-Because of this, 15-minute signals are removed, the app defaults to 4 hours (Strict, 1 : 3), and 1 hour is labelled "lost money in tests". Details, the full grid and the script to reproduce it are in [research/RESULTS.md](research/RESULTS.md).
+A second, stricter study ([research/RESULTS-2.md](research/RESULTS-2.md)) used BTC from 2018 to 2026, six strategy types, and rules fixed in advance ([PLAN.md](research/PLAN.md)). **No strategy stayed profitable in the final 2025–2026 test** once broker overnight fees were included, and this app's own 4-hour rules came out about break-even. Treat every idea as unproven.
+
+Because of round 1, 15-minute signals are removed, the app defaults to 4 hours (Strict, 1 : 3), and 1 hour is labelled "lost money in tests". Details, the full grid and the script to reproduce it are in [research/RESULTS.md](research/RESULTS.md).
 
 ## Settings
 
