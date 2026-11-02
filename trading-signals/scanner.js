@@ -10,7 +10,8 @@
 
   // Broker-style (MT5) names. Prices for "XXXUSD" come from Binance's "XXXUSDT".
   const DEFAULT_SYMBOLS = ['XAUUSD', 'BTCUSD', 'ETHUSD', 'SOLUSD', 'BNBUSD', 'XRPUSD', 'DOGEUSD', 'ADAUSD', 'AVAXUSD', 'LINKUSD', 'LTCUSD'];
-  const AUTO_INTERVALS = ['15m', '1h', '4h'];
+  // 15m/5m were removed: on real prices they did no better than random entries (see README).
+  const AUTO_INTERVALS = ['4h'];
   const HISTORY = 1500;
 
   // Markets Binance doesn't list directly, analysed through a closely tracking instrument.

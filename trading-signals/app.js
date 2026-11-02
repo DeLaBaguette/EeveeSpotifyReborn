@@ -33,11 +33,11 @@
 
   const DEFAULT_SETTINGS = Object.freeze({
     symbols: Scanner.DEFAULT_SYMBOLS.join(', '),
-    interval: 'auto',
+    interval: '4h',
     account: 1000,
     riskPct: 1,
-    tp2R: 2,
-    threshold: 60,
+    tp2R: 3,
+    threshold: 70,
     scaleOut: true,
     contracts: 'XAUUSD=100',
   });
@@ -45,6 +45,8 @@
   function applySettings(s) {
     els.symbols.value = s.symbols;
     els.interval.value = s.interval;
+    // older saved choices (Auto, 15m, 5m) are no longer offered
+    if (els.interval.value !== s.interval) els.interval.value = DEFAULT_SETTINGS.interval;
     els.account.value = s.account;
     els.risk.value = s.riskPct;
     els.rr.value = s.tp2R;

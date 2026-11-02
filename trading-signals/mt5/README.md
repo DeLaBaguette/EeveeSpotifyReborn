@@ -30,7 +30,7 @@ and click the **Download raw file** button (the arrow icon at the top right of t
 2. Fill in the settings:
    - **Expert:** SignalDesk
    - **Symbol:** XAUUSD (or GOLD, whatever your broker calls it)
-   - **Timeframe:** H1
+   - **Timeframe:** H4 (in real-price tests, M15 and H1 lost money; H4 did best)
    - **Date:** last 1–2 years
    - **Modelling:** *Every tick based on real ticks* (or *1 minute OHLC* if that isn't available)
    - **Deposit:** your account size
@@ -42,7 +42,7 @@ and click the **Download raw file** button (the arrow icon at the top right of t
 5. Try different **Inputs** (risk:reward, strictness) and compare. This is the honest answer to "how good is it on gold".
 
 ### 4. Run it on a demo account
-1. Open a chart: **File → New Chart → XAUUSD**, and click **H1** in the toolbar.
+1. Open a chart: **File → New Chart → XAUUSD**, and click **H4** in the toolbar. The robot trades H4 by default, whatever the chart shows.
 2. In the **Navigator** panel (Ctrl + N), open **Expert Advisors** and drag **SignalDesk** onto the chart.
 3. In the window that opens:
    - **Common** tab: tick **Allow Algo Trading**.
@@ -76,9 +76,9 @@ Open the robot's settings on the chart (double-click the robot's icon at the top
 
 | Setting | Default | What it does |
 |---|---|---|
-| Timeframe | CURRENT | The candle size it trades (CURRENT = the chart's). The trend filter uses the next timeframe up (M15→H1, H1→H4, H4→D1) |
-| Minimum score | 60 | 60 normal, 70 strict, 80 very strict. Stricter means fewer trades |
-| Risk : reward | 2 | TP2 distance in multiples of the stop distance. 30 means 1:30, which pays big but is rarely reached |
+| Timeframe | H4 | The candle size it trades. H4 did best on real prices; M15 and H1 lost money. The trend filter uses the next timeframe up (H4→D1) |
+| Minimum score | 70 | 60 normal, 70 strict, 80 very strict. 70 was the most consistent in testing; 80 did worse on H4 |
+| Risk : reward | 3 | TP2 distance in multiples of the stop distance. 30 means 1:30, which was **never** reached on H4 in testing |
 | Close 50% at TP1 | true | TP1 sits at 1R (or half-way to TP2 if that's closer). Closes half and moves the stop to entry, so the rest can't lose |
 | Time exit | 0 (auto) | Closes the trade after N candles if neither the stop nor TP2 was hit. Auto grows with the risk:reward |
 | Allow BUY / SELL | true | Turn either direction off |

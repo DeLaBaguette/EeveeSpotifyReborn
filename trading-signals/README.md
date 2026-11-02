@@ -4,12 +4,18 @@ A browser app that scans a list of crypto markets on demand and gives you the be
 
 > **Read this first.** No app, indicator, AI or signal service can guarantee winning trades, and anything that claims to is lying. Prices react to news and to millions of other traders. What a tool *can* do is wait for several independent conditions to agree, size the position so one loss is small, and show you the real track record so you know what to expect. A Grade A setup can and will still lose. Expect losing streaks; the app shows you the longest one it found.
 
+## Tested on real prices: read this
+
+On 22 months of real BTCUSD prices (January 2025 to November 2026), **15-minute and 1-hour signals lost money and were no better than random trades**, even before costs. **4-hour signals made a small profit** (about +0.1R per trade at Strict, 1 : 3), positive in both years, but there weren't enough trades to rule out luck. Gold only had 6 months of data, with no clear result.
+
+Because of this, 15-minute signals are removed, the app defaults to 4 hours (Strict, 1 : 3), and 1 hour is labelled "lost money in tests". Details, the full grid and the script to reproduce it are in [research/RESULTS.md](research/RESULTS.md).
+
 ## Settings
 
 | Setting | What it does |
 |---|---|
 | **Markets** | Named the way MT5 brokers name them: `XAUUSD`, `BTCUSD`, `ETHUSD`… (`BTCUSDT`, `BTC` and `GOLD` work too and are converted). Prices for `XXXUSD` come from Binance's `XXXUSDT`, which sits within a few dollars of the USD price. |
-| **Timeframe** | Auto (15m, 1h and 4h) or a single timeframe. |
+| **Timeframe** | 4 hours (recommended), 1 hour (lost money in tests) or 1 day (not enough data to test). |
 | **Strictness** | Normal (score 60+), Strict (70+) or Very strict (80+). Stricter means fewer trades, usually better ones, but never zero losers. |
 | **Risk : reward** | Any value from 1 : 0.5 to 1 : 50, with quick buttons up to **1 : 30**. Far targets pay more but are hit less often. The card warns you and shows how often TP2 was actually reached. The time exit grows with the target. |
 | **Close 50% at TP1** | TP1 is at 1R, or half-way to TP2 if that's closer. |
@@ -39,7 +45,7 @@ To serve it instead of opening the file: `npx serve .` or `python3 -m http.serve
 
 ## What it does
 
-For every market and timeframe on your list (Auto mode scans 15m, 1h and 4h):
+For every market on your list, on the chosen timeframe:
 
 1. **Scores confluence (0–100).** Nine conditions, each weighted:
    - price vs the 200 EMA (15)

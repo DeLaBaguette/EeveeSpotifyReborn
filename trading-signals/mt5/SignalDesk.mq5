@@ -24,9 +24,9 @@
 
 //--- inputs ----------------------------------------------------------
 input group "Strategy"
-input ENUM_TIMEFRAMES InpTimeframe   = PERIOD_CURRENT; // Timeframe (CURRENT = the chart's timeframe)
-input int             InpMinScore    = 60;             // Minimum score to trade (60 normal, 70 strict, 80 very strict)
-input double          InpRewardRisk  = 2.0;            // Risk : reward, 1 : x (e.g. 2 or 30)
+input ENUM_TIMEFRAMES InpTimeframe   = PERIOD_H4;      // Timeframe (H4 tested best; CURRENT = chart timeframe)
+input int             InpMinScore    = 70;             // Minimum score to trade (60 normal, 70 strict, 80 very strict)
+input double          InpRewardRisk  = 3.0;            // Risk : reward, 1 : x (e.g. 3 or 30)
 input bool            InpScaleOut    = true;           // Close 50% at TP1 and move the stop to entry
 input int             InpMaxBars     = 0;              // Time exit after N candles (0 = automatic)
 input bool            InpTradeLongs  = true;           // Allow BUY trades
