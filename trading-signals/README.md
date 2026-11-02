@@ -8,7 +8,7 @@ A browser app that scans a list of crypto markets on demand and gives you the be
 
 | Setting | What it does |
 |---|---|
-| **Markets** | Any Binance pair (e.g. `BTCUSDT`) plus **`XAUUSD`** for gold (also accepts `GOLD`). |
+| **Markets** | Named the way MT5 brokers name them: `XAUUSD`, `BTCUSD`, `ETHUSD`… (`BTCUSDT`, `BTC` and `GOLD` work too and are converted). Prices for `XXXUSD` come from Binance's `XXXUSDT`, which sits within a few dollars of the USD price. |
 | **Timeframe** | Auto (15m, 1h and 4h) or a single timeframe. |
 | **Strictness** | Normal (score 60+), Strict (70+) or Very strict (80+). Stricter means fewer trades, usually better ones, but never zero losers. |
 | **Risk : reward** | Any value from 1 : 0.5 to 1 : 50, with quick buttons up to **1 : 30**. Far targets pay more but are hit less often. The card warns you and shows how often TP2 was actually reached. The time exit grows with the target. |

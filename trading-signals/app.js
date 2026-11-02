@@ -60,6 +60,9 @@
     try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { saved = {}; }
     const s = { ...DEFAULT_SETTINGS };
     for (const k of Object.keys(s)) if (saved[k] != null && saved[k] !== '') s[k] = saved[k];
+    // Older versions saved Binance names (BTCUSDT); show them the way brokers name them (BTCUSD).
+    const syms = Scanner.parseSymbols(s.symbols);
+    if (syms.length) s.symbols = syms.join(', ');
     applySettings(s);
   }
 
@@ -108,7 +111,7 @@
   const dirWord = (d) => (d > 0 ? 'BUY' : 'SELL');
   const lean = (d) => (d > 0 ? 'long' : d < 0 ? 'short' : 'neutral');
 
-  const QUOTES = ['USDT', 'USDC', 'FDUSD', 'BUSD', 'TUSD', 'DAI', 'EUR', 'TRY', 'BTC', 'ETH', 'BNB'];
+  const QUOTES = ['USDT', 'USDC', 'FDUSD', 'BUSD', 'TUSD', 'DAI', 'USD', 'EUR', 'TRY', 'BTC', 'ETH', 'BNB'];
   function baseAsset(sym) {
     for (const q of QUOTES) if (sym.endsWith(q) && sym.length > q.length) return sym.slice(0, -q.length);
     return sym;
@@ -136,7 +139,7 @@
   // Units per lot for this market: the user's setting (BTCUSD also matches BTCUSDT), else 100 oz for gold, else 1.
   function contractSize(r) {
     const map = parseContracts(settings ? settings.contracts : DEFAULT_SETTINGS.contracts);
-    const fromUser = map[r.symbol] || map[r.symbol.replace(/USDT$/, 'USD')];
+    const fromUser = map[r.symbol] || map[r.symbol.replace(/USDT$/, 'USD')] || map[r.dataSymbol];
     return fromUser || (r.meta && r.meta.lotSize) || 1;
   }
 
@@ -260,7 +263,7 @@
       <div class="card-head">
         <div>
           <div class="pair">${esc(r.symbol)} <span class="tf">${esc(r.interval)}</span></div>
-          <div class="sub">Price ${price(r.livePrice)}${r.meta ? ` (${esc(r.dataSymbol)})` : ''} · last closed candle ${when(r.lastBarTime)}${r.signal ? ` · signal active for ${r.ageBars} candle${r.ageBars === 1 ? '' : 's'}` : ''}</div>
+          <div class="sub">Price ${price(r.livePrice)}${r.dataSymbol !== r.symbol ? ` (from Binance ${esc(r.dataSymbol)})` : ''} · last closed candle ${when(r.lastBarTime)}${r.signal ? ` · signal active for ${r.ageBars} candle${r.ageBars === 1 ? '' : 's'}` : ''}</div>
         </div>
         <div class="verdict">
           ${r.signal
@@ -472,7 +475,7 @@
     const rel = (x) => `${distance(x, p.entry)}, ${pct((x - p.entry) / p.entry)}`;
     return [
       `${dirWord(r.dir)} ${r.symbol} (${r.interval}) 1:${p.tp2R} — Grade ${r.grade}, quality ${r.quality}/100, score ${r.score}/100`,
-      `Entry: ${price(p.entry)}${r.meta ? ` (${r.dataSymbol} price — use your broker's price and the distances)` : ''}`,
+      `Entry: ${price(p.entry)}${r.dataSymbol !== r.symbol ? ` (Binance ${r.dataSymbol} price — your broker's price may differ slightly, so use the distances)` : ''}`,
       `Stop loss: ${price(p.sl, p.entry)} (${rel(p.sl)})`,
       `TP1: ${price(p.tp1, p.entry)} (${rel(p.tp1)})${p.scaleOut ? ' — close 50%, move stop to entry' : ''}`,
       `TP2: ${price(p.tp2, p.entry)} (${rel(p.tp2)})`,
@@ -516,7 +519,7 @@
   function tvSymbol(r) {
     if (r.meta && r.meta.tv) return r.meta.tv; // e.g. real XAUUSD for gold
     const host = lastScan && lastScan.source ? lastScan.source : '';
-    return (host.includes('binance.us') ? 'BINANCEUS:' : 'BINANCE:') + r.symbol;
+    return (host.includes('binance.us') ? 'BINANCEUS:' : 'BINANCE:') + (r.dataSymbol || r.symbol);
   }
 
   function tvLink(r) {

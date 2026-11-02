@@ -8,7 +8,8 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (Engine, Market) {
   'use strict';
 
-  const DEFAULT_SYMBOLS = ['XAUUSD', 'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'LTCUSDT'];
+  // Broker-style (MT5) names. Prices for "XXXUSD" come from Binance's "XXXUSDT".
+  const DEFAULT_SYMBOLS = ['XAUUSD', 'BTCUSD', 'ETHUSD', 'SOLUSD', 'BNBUSD', 'XRPUSD', 'DOGEUSD', 'ADAUSD', 'AVAXUSD', 'LINKUSD', 'LTCUSD'];
   const AUTO_INTERVALS = ['15m', '1h', '4h'];
   const HISTORY = 1500;
 
@@ -32,9 +33,26 @@
     await Promise.all(workers);
   }
 
+  const STABLE_USD = /(BUSD|TUSD|FDUSD|USDC)$/; // Binance quotes that merely end in "USD"
+
+  // User input -> broker-style name: "btcusdt", "BTCUSD" and "btc" all become "BTCUSD".
+  function normalizeSymbol(s) {
+    if (SYNONYMS[s]) return SYNONYMS[s];
+    if (/USDT$/.test(s)) return s.slice(0, -1);
+    if (/^[A-Z]{2,5}$/.test(s) && !/USD$/.test(s)) return s + 'USD'; // bare coin like BTC or SOL
+    return s;
+  }
+
+  // Broker-style name -> the Binance symbol we read prices from.
+  function dataSymbolFor(symbol) {
+    if (ALIASES[symbol]) return ALIASES[symbol].data;
+    if (/USD$/.test(symbol) && !STABLE_USD.test(symbol)) return symbol + 'T';
+    return symbol;
+  }
+
   function parseSymbols(text) {
     const clean = String(text).toUpperCase().split(/[\s,;]+/).map((s) => s.replace(/[^A-Z0-9]/g, '')).filter(Boolean);
-    return [...new Set(clean.map((s) => SYNONYMS[s] || s))];
+    return [...new Set(clean.map(normalizeSymbol))];
   }
 
   /**
@@ -66,7 +84,7 @@
     await pool(jobs, 4, async ({ symbol, interval }) => {
       const htfInterval = Market.HIGHER[interval];
       const meta = ALIASES[symbol] || null;
-      const dataSymbol = meta ? meta.data : symbol;
+      const dataSymbol = dataSymbolFor(symbol);
       try {
         const [ltfRaw, htfRaw] = await Promise.all([get(dataSymbol, interval), get(dataSymbol, htfInterval)]);
         const ltf = Market.splitClosed(ltfRaw, now);
@@ -91,5 +109,5 @@
     return { results: ranked, best, scannedAt: now, source: Market.activeHost() };
   }
 
-  return { scan, parseSymbols, DEFAULT_SYMBOLS, AUTO_INTERVALS, ALIASES };
+  return { scan, parseSymbols, normalizeSymbol, dataSymbolFor, DEFAULT_SYMBOLS, AUTO_INTERVALS, ALIASES };
 });

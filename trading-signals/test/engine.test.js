@@ -265,7 +265,9 @@ test('scanner ranks results and reports bad symbols without failing the scan', a
 
 test('parseSymbols cleans user input', () => {
   const { parseSymbols } = require('../scanner');
-  assert.deepEqual(parseSymbols(' btcusdt, ETHUSDT;eth-usdt  btcusdt\n'), ['BTCUSDT', 'ETHUSDT']);
+  assert.deepEqual(parseSymbols(' btcusdt, ETHUSDT;eth-usdt  btcusdt\n'), ['BTCUSD', 'ETHUSD']);
+  // broker-style names, bare coins, and non-USD pairs left alone
+  assert.deepEqual(parseSymbols('btc, SOLUSD, dogeusdt, ETHBTC, gold'), ['BTCUSD', 'SOLUSD', 'DOGEUSD', 'ETHBTC', 'XAUUSD']);
 });
 
 test('resolveOpts: TP1 never beyond half of TP2, time stop grows with far targets', () => {
@@ -302,7 +304,7 @@ test('custom risk:reward and strictness flow through the plan and backtest', () 
 test('gold: XAUUSD is analysed through PAXGUSDT and charted as real XAUUSD', async () => {
   const Scanner = require('../scanner');
   require('../market')._reset();
-  assert.deepEqual(Scanner.parseSymbols('gold, xau, XAUUSD, paxgusdt, btcusdt'), ['XAUUSD', 'BTCUSDT']);
+  assert.deepEqual(Scanner.parseSymbols('gold, xau, XAUUSD, paxgusdt, btcusdt'), ['XAUUSD', 'BTCUSD']);
   const calls = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = mockFetch(NOW, { calls });
@@ -314,6 +316,28 @@ test('gold: XAUUSD is analysed through PAXGUSDT and charted as real XAUUSD', asy
     assert.equal(r.dataSymbol, 'PAXGUSDT');
     assert.equal(r.meta.tv, 'OANDA:XAUUSD');
     assert.ok(calls.every((u) => u.includes('symbol=PAXGUSDT')), 'fetches PAXG data');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('broker names: BTCUSD is priced from Binance BTCUSDT and keeps its broker name', async () => {
+  const Scanner = require('../scanner');
+  require('../market')._reset();
+  assert.equal(Scanner.dataSymbolFor('BTCUSD'), 'BTCUSDT');
+  assert.equal(Scanner.dataSymbolFor('XAUUSD'), 'PAXGUSDT');
+  assert.equal(Scanner.dataSymbolFor('ETHBTC'), 'ETHBTC');
+  assert.equal(Scanner.dataSymbolFor('BTCFDUSD'), 'BTCFDUSD');
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch(NOW, { calls });
+  try {
+    const out = await Scanner.scan({ symbols: ['BTCUSD'], intervals: ['1h'], now: NOW });
+    const r = out.results[0];
+    assert.ok(!r.error, r.error);
+    assert.equal(r.symbol, 'BTCUSD');
+    assert.equal(r.dataSymbol, 'BTCUSDT');
+    assert.ok(calls.every((u) => u.includes('symbol=BTCUSDT')));
   } finally {
     globalThis.fetch = realFetch;
   }
